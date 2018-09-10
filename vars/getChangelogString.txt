@@ -1,0 +1,5 @@
+<strong>getChangelogString(MAX_MSG_LEN = 400)</strong>
+
+<p>
+    Get a string representing the changelog with MAX_MSG_LEN
+</p>
