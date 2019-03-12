@@ -1,0 +1,5 @@
+<strong>buildDeploy(config Map)</strong>
+
+<p>
+    This will build and push docker images, and then deploy using the repo helm chart
+</p>
