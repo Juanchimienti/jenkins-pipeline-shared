@@ -73,7 +73,7 @@ def call( Map config ) {
                                     }
                                 }
                                 sh "cd ${config.app};helm init --client-only; helm dep update; cd .."
-                                sh "helm upgrade ${config.release_name}  ${config.app} --namespace ${NAMESPACE} -i -f ${config.app}/values-${config.branch}.yaml --set-string image.tag=${VERSION}"
+                                sh "helm upgrade ${config.release_name}  ${config.app} --namespace ${NAMESPACE} -i -f ${config.app}/values-${config.branch}.yaml --set-string image.tag=${VERSION},image.repository=${config.registry}/${config.app}"
                             }
                         }
                     }
