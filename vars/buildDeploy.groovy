@@ -60,10 +60,11 @@ def call( Map config ) {
 
                             stage('Deploy') {
                                 script {
-                                    if ( NAMESPACE == '' ){
+                                    if ( config.namespace == '' ){
                                         NAMESPACE = 'default'
+                                        RELEASE_NAME = config.release_name
                                     } else {
-                                        RELEASE_NAME = RELEASE_NAME + BRANCH
+                                        RELEASE_NAME = "${config.release_name}-${config.namespace}"
                                     }
                                     if ( config.encripted == 'true' ){
                                         withCredentials([string(credentialsId: "${config.gcloud_credentials}", variable: 'GCLOUD_KEY_FILE' )]) {
@@ -73,7 +74,7 @@ def call( Map config ) {
                                     }
                                 }
                                 sh "cd ${config.app};helm init --client-only; helm dep update; cd .."
-                                sh "helm upgrade ${config.release_name}  ${config.app} --namespace ${NAMESPACE} -i -f ${config.app}/values-${config.branch}.yaml --set-string image.tag=${VERSION},image.repository=${config.registry}/${config.app}"
+                                sh "helm upgrade ${RELEASE_NAME}  ${config.app} --namespace ${NAMESPACE} -i -f ${config.app}/values-${config.branch}.yaml --set-string image.tag=${VERSION},image.repository=${config.registry}/${config.app}"
                             }
                         }
                     }
