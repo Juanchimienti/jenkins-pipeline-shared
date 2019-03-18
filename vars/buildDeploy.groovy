@@ -13,7 +13,8 @@ def call( Map config ) {
     label: label,
     containers: [
       containerTemplate(name: 'builder', image: 'juanchimienti/jenkins-slave-builder:v0.6', command: 'cat', ttyEnabled: true),
-      containerTemplate(name: 'docker' , image: 'docker:18.09-dind', privileged: true), ]
+      containerTemplate(name: 'docker' , image: 'docker:18.09-dind', privileged: true),
+    ]
   ) {
     node(label) {
       try {
@@ -25,6 +26,19 @@ def call( Map config ) {
             deleteDir()
             dir ("${config.app}") {
               stage('Cloning repos') {
+                checkout([$class: 'GitSCM',
+                          branches: [[name: "*/${config.branch}"]],
+                          doGenerateSubmoduleConfigurations: false,
+                          extensions: [[ $class: 'SubmoduleOption',
+                                        disableSubmodules: false,
+                                        parentCredentials: true,
+                                        recursiveSubmodules: true,
+                                        reference: '',
+                                        trackingSubmodules: false]],
+                          submoduleCfg: [],
+                          userRemoteConfigs: [[credentialsId: "${config.repo_credentials}",
+                                               url: "${config.repo_url}"]]]
+                )
                 script {
                   if (config.tag != '') {
                     git credentialsId: "${config.repo_credentials}", url: "${config.repo_url}", tag: "${config.tag}"
