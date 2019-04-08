@@ -69,7 +69,7 @@ def deploy( Map config ){
     } else {
       CHART=config.app
     }
-    if ( config.encripted == 'true' ){
+    if ( config.encripted ){
       withCredentials([string(credentialsId: "${config.gcloud_credentials}", variable: 'GCLOUD_KEY_FILE' )]) {
         loginGcloud(config)
         sh "export GOOGLE_APPLICATION_CREDENTIALS='/tmp/jenkins.json' ; sops --encrypted-suffix _SOPS_ENCRIPTED -d ${YAML_PATH}/enc_values-${config.branch}.yaml|sed 's/_SOPS_ENCRIPTED//g' >  ${YAML_PATH}/values-${config.branch}.yaml"
