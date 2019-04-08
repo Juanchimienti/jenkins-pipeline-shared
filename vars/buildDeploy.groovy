@@ -6,6 +6,87 @@ def loginGcloud( Map config ){
   sh "gcloud auth activate-service-account --key-file=/tmp/jenkins.json --project=${config.cloud_project}"
   sh "yes | gcloud auth configure-docker"
 }
+def cloneRepo( Map config ){
+  checkout([$class: 'GitSCM',
+            branches: [[name: "*/${config.branch}"]],
+            doGenerateSubmoduleConfigurations: false,
+            extensions: [[ $class: 'SubmoduleOption',
+                          disableSubmodules: false,
+                          parentCredentials: true,
+                          recursiveSubmodules: true,
+                          reference: '',
+                          trackingSubmodules: false]],
+            submoduleCfg: [],
+            userRemoteConfigs: [[credentialsId: "${config.repo_credentials}",
+                                 url: "${config.repo_url}"]]]
+  )
+  script {
+    if (config.tag != '') {
+      git credentialsId: "${config.repo_credentials}", url: "${config.repo_url}", tag: "${config.tag}"
+      VERSION = config.tag
+    } else {
+      git credentialsId: "${config.repo_credentials}", url: "${config.repo_url}", branch: "${config.branch}"
+      VERSION = sh(script: "git rev-parse --short HEAD|tr -d '\n'", returnStdout: true)
+    }
+  }
+}
+
+def buildImage( Map config ) {
+  withCredentials([sshUserPrivateKey(credentialsId: "${config.repo_credentials}", keyFileVariable: 'SSH_PRIVATE_KEY' )]) {
+    BUILD_ARGS=''
+    for ( e in config.build_env ) {
+      BUILD_ARGS="${BUILD_ARGS} --build-arg ${e.key}=${e.value}"
+    }
+    sh 'KEY=`cat "$SSH_PRIVATE_KEY"` ;docker build -t ' + "${config.app}:${VERSION}" +' -f Dockerfile --build-arg "SSH_PRIVATE_KEY=${KEY}" ' + BUILD_ARGS + ' . '
+  }
+}
+
+def tagPush( Map config ) {
+  withCredentials([string(credentialsId: "${config.gcloud_credentials}", variable: 'GCLOUD_KEY_FILE' )]) {
+    loginGcloud(config)
+    sh "docker tag ${config.app}:${VERSION} ${config.registry}/${config.app}:latest"
+    sh "docker tag ${config.app}:${VERSION} ${config.registry}/${config.app}:${VERSION}"
+    sh "docker push ${config.registry}/${config.app}:latest"
+    sh "docker push ${config.registry}/${config.app}:${VERSION}"
+  }
+}
+
+def deploy( Map config ){
+  script {
+    if ( config.namespace == '' ){
+      NAMESPACE = 'default'
+      RELEASE_NAME = config.release_name
+    } else {
+      RELEASE_NAME = "${config.release_name}-${config.namespace}"
+    }
+    if ( config.yaml_path ) {
+      YAML_PATH=config.yaml_path
+    } else {
+      YAML_PATH=config.app
+    }
+    if ( config.chart ) {
+      CHART=config.chart
+    } else {
+      CHART=config.app
+    }
+    if ( config.encripted == 'true' ){
+      withCredentials([string(credentialsId: "${config.gcloud_credentials}", variable: 'GCLOUD_KEY_FILE' )]) {
+        loginGcloud(config)
+        sh "export GOOGLE_APPLICATION_CREDENTIALS='/tmp/jenkins.json' ; sops --encrypted-suffix _SOPS_ENCRIPTED -d ${YAML_PATH}/enc_values-${config.branch}.yaml|sed 's/_SOPS_ENCRIPTED//g' >  ${YAML_PATH}/values-${config.branch}.yaml"
+      }
+    }
+    ARGS=""
+    if ( config.build_image ) {
+      ARGS = ARGS.concat("--set-string image.tag=${VERSION},image.repository=${config.registry}/${config.app} ")
+    }
+    if ( config.chart_version ) {
+      ARGS = ARGS.concat("--version ${config.chart_version} ")
+    }
+  }
+  sh "cd ${YAML_PATH};helm init --client-only; if [ -f requirements.yaml ] ; then helm dep update; fi; cd -"
+  sh "helm upgrade ${RELEASE_NAME} ${CHART} --namespace ${NAMESPACE} -i -f ${YAML_PATH}/values-${config.branch}.yaml ${ARGS}"
+}
+
 
 def call( Map config ) {
   def label = "worker-${UUID.randomUUID().toString()}"
@@ -26,69 +107,22 @@ def call( Map config ) {
             deleteDir()
             dir ("${config.app}") {
               stage('Cloning repos') {
-                checkout([$class: 'GitSCM',
-                          branches: [[name: "*/${config.branch}"]],
-                          doGenerateSubmoduleConfigurations: false,
-                          extensions: [[ $class: 'SubmoduleOption',
-                                        disableSubmodules: false,
-                                        parentCredentials: true,
-                                        recursiveSubmodules: true,
-                                        reference: '',
-                                        trackingSubmodules: false]],
-                          submoduleCfg: [],
-                          userRemoteConfigs: [[credentialsId: "${config.repo_credentials}",
-                                               url: "${config.repo_url}"]]]
-                )
-                script {
-                  if (config.tag != '') {
-                    git credentialsId: "${config.repo_credentials}", url: "${config.repo_url}", tag: "${config.tag}"
-                    VERSION = config.tag
-                  } else {
-                    git credentialsId: "${config.repo_credentials}", url: "${config.repo_url}", branch: "${config.branch}"
-                    VERSION = sh(script: "git rev-parse --short HEAD|tr -d '\n'", returnStdout: true)
-                  }
-                }
+                cloneRepo(config)
               }
-
               slackSend(color:"#4ab737",message: getChangelogString())
 
-              stage('Build images') {
-                withCredentials([sshUserPrivateKey(credentialsId: "${config.repo_credentials}", keyFileVariable: 'SSH_PRIVATE_KEY' )]) {
-                  BUILD_ARGS=''
-                  for ( e in config.build_env ) {
-                    BUILD_ARGS="${BUILD_ARGS} --build-arg ${e.key}=${e.value}"
+              if ( config.build_image ) {
+                stage('Build images') {
+                    buildImage(config)
                   }
-                  sh 'KEY=`cat "$SSH_PRIVATE_KEY"` ;docker build -t ' + "${config.app}:${VERSION}" +' -f Dockerfile --build-arg "SSH_PRIVATE_KEY=${KEY}" ' + BUILD_ARGS + ' . '
-                }
-              }
 
-              stage('Tag/push Images') {
-                withCredentials([string(credentialsId: "${config.gcloud_credentials}", variable: 'GCLOUD_KEY_FILE' )]) {
-                  loginGcloud(config)
-                  sh "docker tag ${config.app}:${VERSION} ${config.registry}/${config.app}:latest"
-                  sh "docker tag ${config.app}:${VERSION} ${config.registry}/${config.app}:${VERSION}"
-                  sh "docker push ${config.registry}/${config.app}:latest"
-                  sh "docker push ${config.registry}/${config.app}:${VERSION}"
+                stage('Tag/push Images') {
+                  tagPush(config)
                 }
               }
 
               stage('Deploy') {
-                script {
-                  if ( config.namespace == '' ){
-                    NAMESPACE = 'default'
-                    RELEASE_NAME = config.release_name
-                  } else {
-                    RELEASE_NAME = "${config.release_name}-${config.namespace}"
-                  }
-                  if ( config.encripted == 'true' ){
-                    withCredentials([string(credentialsId: "${config.gcloud_credentials}", variable: 'GCLOUD_KEY_FILE' )]) {
-                      loginGcloud(config)
-                      sh "export GOOGLE_APPLICATION_CREDENTIALS='/tmp/jenkins.json' ; sops --encrypted-suffix _SOPS_ENCRIPTED -d ${config.app}/enc_values-${config.branch}.yaml|sed 's/_SOPS_ENCRIPTED//g' >  ${config.app}/values-${config.branch}.yaml"
-                    }
-                  }
-                }
-                sh "cd ${config.app};helm init --client-only; helm dep update; cd .."
-                sh "helm upgrade ${RELEASE_NAME}  ${config.app} --namespace ${NAMESPACE} -i -f ${config.app}/values-${config.branch}.yaml --set-string image.tag=${VERSION},image.repository=${config.registry}/${config.app}"
+                deploy(config)
               }
             }
           }
