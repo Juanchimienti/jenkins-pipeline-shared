@@ -69,10 +69,15 @@ def deploy( Map config ){
     } else {
       CHART=config.app
     }
+    if ( config.force_values_yaml ) {
+      VALUES_YAML = config.force_values_yaml
+    } else {
+      VALUES_YAML = "values-${config.branch}.yaml"
+    }
     if ( config.encripted ){
       withCredentials([string(credentialsId: "${config.gcloud_credentials}", variable: 'GCLOUD_KEY_FILE' )]) {
         loginGcloud(config)
-        sh "export GOOGLE_APPLICATION_CREDENTIALS='/tmp/jenkins.json' ; sops --encrypted-suffix _SOPS_ENCRIPTED -d ${YAML_PATH}/enc_values-${config.branch}.yaml|sed 's/_SOPS_ENCRIPTED//g' >  ${YAML_PATH}/values-${config.branch}.yaml"
+        sh "export GOOGLE_APPLICATION_CREDENTIALS='/tmp/jenkins.json' ; sops --encrypted-suffix _SOPS_ENCRIPTED -d ${YAML_PATH}/enc_${VALUES_YAML} |sed 's/_SOPS_ENCRIPTED//g' >  ${YAML_PATH}/${VALUES_YAML}"
       }
     }
     ARGS=""
@@ -84,7 +89,7 @@ def deploy( Map config ){
     }
   }
   sh "cd ${YAML_PATH};helm init --client-only; if [ -f requirements.yaml ] ; then helm dep update; fi; cd -"
-  sh "helm upgrade ${RELEASE_NAME} ${CHART} --namespace ${NAMESPACE} -i -f ${YAML_PATH}/values-${config.branch}.yaml ${ARGS}"
+  sh "helm upgrade ${RELEASE_NAME} ${CHART} --namespace ${NAMESPACE} -i -f ${YAML_PATH}/${VALUES_YAML} ${ARGS}"
 }
 
 
