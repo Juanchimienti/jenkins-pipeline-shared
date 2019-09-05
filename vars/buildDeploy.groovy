@@ -37,7 +37,17 @@ def buildImage( Map config ) {
     for ( e in config.build_env ) {
       BUILD_ARGS="${BUILD_ARGS} --build-arg ${e.key}=${e.value}"
     }
-    sh 'KEY=`cat "$SSH_PRIVATE_KEY"` ;docker build -t ' + "${config.app}:${VERSION}" +' -f Dockerfile --build-arg "SSH_PRIVATE_KEY=${KEY}" ' + BUILD_ARGS + ' . '
+    if ( config.Dockerfile ) {
+      DOCKERFILE=config.Dockerfile
+    } else {
+      DOCKERFILE="Dockerfile"
+    }
+    if ( config.docker_build_path ) {
+      DOCKER_BUILD_PATH=config.docker_build_path
+    } else {
+      DOCKER_BUILD_PATH="."
+    }
+    sh 'KEY=`cat "$SSH_PRIVATE_KEY"` ;docker build -t ' + "${config.app}:${VERSION} -f ${DOCKERFILE}" + ' --build-arg "SSH_PRIVATE_KEY=${KEY}" ' + BUILD_ARGS + ' ' + DOCKER_BUILD_PATH
   }
 }
 
@@ -119,7 +129,7 @@ def call( Map config ) {
               if ( config.build_image ) {
                 stage('Build images') {
                     buildImage(config)
-                  }
+                }
 
                 stage('Tag/push Images') {
                   tagPush(config)
