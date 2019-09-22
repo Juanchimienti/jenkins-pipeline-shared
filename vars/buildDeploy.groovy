@@ -7,8 +7,15 @@ def loginGcloud( Map config ){
   sh "yes | gcloud auth configure-docker"
 }
 def cloneRepo( Map config ){
+   script {
+    if (config.tag != '') {
+      CHECKOUT_POINT = "tags/" + config.tag
+    } else {
+      CHECKOUT_POINT = "*/" + config.branch
+    }
+  }
   checkout([$class: 'GitSCM',
-            branches: [[name: "*/${config.branch}"]],
+            branches: [[name: "${CHECKOUT_POINT}"]],
             doGenerateSubmoduleConfigurations: false,
             extensions: [[ $class: 'SubmoduleOption',
                           disableSubmodules: false,
@@ -22,10 +29,8 @@ def cloneRepo( Map config ){
   )
   script {
     if (config.tag != '') {
-      git credentialsId: "${config.repo_credentials}", url: "${config.repo_url}", tag: "${config.tag}"
       VERSION = config.tag
     } else {
-      git credentialsId: "${config.repo_credentials}", url: "${config.repo_url}", branch: "${config.branch}"
       VERSION = sh(script: "git rev-parse --short HEAD|tr -d '\n'", returnStdout: true)
     }
   }
