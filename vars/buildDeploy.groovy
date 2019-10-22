@@ -33,6 +33,9 @@ def cloneRepo( Map config ){
     } else {
       VERSION = sh(script: "git rev-parse --short HEAD|tr -d '\n'", returnStdout: true)
     }
+    if ( config.force_version && config.force_version != '') {
+      VERSION = config.force_version
+    }
   }
 }
 
@@ -96,7 +99,7 @@ def deploy( Map config ){
       }
     }
     ARGS=""
-    if ( config.build_image ) {
+    if ( config.build_image || ( config.force_version && config.force_version != '') ) {
       ARGS = ARGS.concat("--set-string image.tag=${VERSION},image.repository=${config.registry}/${config.app} ")
     }
     if ( config.chart_version ) {
