@@ -98,7 +98,8 @@ def deploy( Map config ){
         sh "export GOOGLE_APPLICATION_CREDENTIALS='/tmp/jenkins.json' ; sops --encrypted-suffix _SOPS_ENCRIPTED -d ${YAML_PATH}/enc_${VALUES_YAML} |sed 's/_SOPS_ENCRIPTED//g' >  ${YAML_PATH}/${VALUES_YAML}"
       }
     }
-    ARGS=""
+    // Use wait so helm waits the deploy to be applied in the cluster
+    ARGS="--wait "
     if ( config.build_image || ( config.force_version && config.force_version != '') ) {
       ARGS = ARGS.concat("--set-string image.tag=${VERSION},image.repository=${config.registry}/${config.app} ")
     }
