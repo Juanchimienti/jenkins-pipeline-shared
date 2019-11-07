@@ -99,17 +99,18 @@ def deploy( Map config ){
       }
     }
     // Use wait so helm waits the deploy to be applied in the cluster
-    ARGS="--wait "
+    COMMON_ARGS=""
+    UPGRADE_ARGS="--wait "
     if ( config.build_image || ( config.force_version && config.force_version != '') ) {
-      ARGS = ARGS.concat("--set-string image.tag=${VERSION},image.repository=${config.registry}/${config.app} ")
+      COMMON_ARGS = COMMON_ARGS.concat("--set-string image.tag=${VERSION},image.repository=${config.registry}/${config.app} ")
     }
     if ( config.chart_version ) {
-      ARGS = ARGS.concat("--version ${config.chart_version} ")
+      COMMON_ARGS = COMMON_ARGS.concat("--version ${config.chart_version} ")
     }
   }
   sh "cd ${YAML_PATH};helm init --client-only; if [ -f requirements.yaml ] ; then helm dep update; fi; cd -"
-  sh "helm diff upgrade ${RELEASE_NAME} ${CHART} --namespace ${NAMESPACE} -f ${YAML_PATH}/${VALUES_YAML} ${ARGS}"
-  sh "helm upgrade ${RELEASE_NAME} ${CHART} --namespace ${NAMESPACE} -i -f ${YAML_PATH}/${VALUES_YAML} ${ARGS}"
+  sh "helm diff upgrade ${RELEASE_NAME} ${CHART} --namespace ${NAMESPACE} -f ${YAML_PATH}/${VALUES_YAML} ${COMMON_ARGS}"
+  sh "helm upgrade ${RELEASE_NAME} ${CHART} --namespace ${NAMESPACE} -i -f ${YAML_PATH}/${VALUES_YAML} ${COMMON_ARGS} ${UPGRADE_ARGS}"
 }
 
 
