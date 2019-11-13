@@ -109,7 +109,7 @@ def deploy( Map config ){
     }
   }
   sh "cd ${YAML_PATH};helm init --client-only; if [ -f requirements.yaml ] ; then helm dep update; fi; cd -"
-  sh "helm diff upgrade ${RELEASE_NAME} ${CHART} --namespace ${NAMESPACE} -f ${YAML_PATH}/${VALUES_YAML} ${COMMON_ARGS}"
+  sh "helm diff upgrade ${RELEASE_NAME} ${CHART} --allow-unreleased --namespace ${NAMESPACE} -f ${YAML_PATH}/${VALUES_YAML} ${COMMON_ARGS}"
   sh "helm upgrade ${RELEASE_NAME} ${CHART} --namespace ${NAMESPACE} -i -f ${YAML_PATH}/${VALUES_YAML} ${COMMON_ARGS} ${UPGRADE_ARGS}"
 }
 
