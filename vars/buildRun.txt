@@ -1,0 +1,5 @@
+<strong>buildRun(config Map)</strong>
+
+<p>
+    This will build and run a command.
+</p>
