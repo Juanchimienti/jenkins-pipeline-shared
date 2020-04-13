@@ -52,11 +52,11 @@ def call(Map config) {
           container('builder') {
             deleteDir()
             dir ("${config.app}") {
-              stage('Cloning repos') {
+              stage('Cloning repos for run') {
                 cloneRepo(config)
               }
 
-              stage('Build'){ 
+              stage('Build for run'){
                 sh "${config.build_cmd}"
               }
 
@@ -83,4 +83,5 @@ def call(Map config) {
         )
       }
     }
+  }
 }
