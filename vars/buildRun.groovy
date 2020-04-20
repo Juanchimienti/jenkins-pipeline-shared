@@ -1,39 +1,7 @@
 #!groovy
 
-def cloneRepo( Map config ){
-   script {
-    if (config.tag != '') {
-      CHECKOUT_POINT = "tags/" + config.tag
-    } else {
-      CHECKOUT_POINT = "*/" + config.branch
-    }
-  }
-  checkout([$class: 'GitSCM',
-            branches: [[name: "${CHECKOUT_POINT}"]],
-            doGenerateSubmoduleConfigurations: false,
-            extensions: [[ $class: 'SubmoduleOption',
-                          disableSubmodules: false,
-                          parentCredentials: true,
-                          recursiveSubmodules: true,
-                          reference: '',
-                          trackingSubmodules: false]],
-            submoduleCfg: [],
-            userRemoteConfigs: [[credentialsId: "${config.repo_credentials}",
-                                 url: "${config.repo_url}"]]]
-  )
-  script {
-    if (config.tag != '') {
-      VERSION = config.tag
-    } else {
-      VERSION = sh(script: "git rev-parse --short HEAD|tr -d '\n'", returnStdout: true)
-    }
-    if ( config.force_version && config.force_version != '') {
-      VERSION = config.force_version
-    }
-  }
-}
-
 def call(Map config) {
+  def c = new libs.common()
   def label = "worker-${UUID.randomUUID().toString()}"
   podTemplate(
     containers: [
@@ -53,7 +21,7 @@ def call(Map config) {
             deleteDir()
             dir ("${config.app}") {
               stage('Cloning repos for run') {
-                cloneRepo(config)
+                c.cloneRepo(config)
               }
 
               stage('Build for run'){
