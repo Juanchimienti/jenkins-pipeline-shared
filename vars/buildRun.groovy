@@ -4,6 +4,7 @@ def call(Map config) {
   def c = new libs.common()
   def label = "worker-${UUID.randomUUID().toString()}"
   podTemplate(
+    label: label,
     containers: [
       containerTemplate(
         name: 'builder',
@@ -11,7 +12,7 @@ def call(Map config) {
         ttyEnabled: true),
     ]
   ) {
-    node(POD_LABEL) {
+    node(label) {
       try {
         slackSend(
           color: "#a7b736",

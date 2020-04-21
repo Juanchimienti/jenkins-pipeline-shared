@@ -6,8 +6,8 @@ def call( Map config ) {
   podTemplate(
     label: label,
     containers: [
-      containerTemplate(name: 'builder', image: 'juanchimienti/jenkins-slave-builder:v0.8.1', command: 'cat', ttyEnabled: true),
-      containerTemplate(name: 'docker' , image: 'docker:18.09-dind', privileged: true),
+      containerTemplate(name: 'builder', image: 'juanchimienti/jenkins-slave-builder:v0.8.2', command: 'cat', ttyEnabled: true),
+      containerTemplate(name: 'docker' , image: 'docker:19.03-dind', privileged: true, envVars: [containerEnvVar(key:'DOCKER_TLS_CERTDIR', value:'')]),
     ]
   ) {
     node(label) {

@@ -94,10 +94,10 @@ def deploy( Map config ){
     } else {
       VALUES_YAML = "values-${config.branch}.yaml"
     }
-    if ( config.encripted ){
+    if (fileExists("${YAML_PATH}/enc_${VALUES_YAML}")){
       withCredentials([string(credentialsId: "${config.gcloud_credentials}", variable: 'GCLOUD_KEY_FILE' )]) {
         loginGcloud(config)
-        sh "export GOOGLE_APPLICATION_CREDENTIALS='/tmp/jenkins.json'; sops --encrypted-suffix _SOPS_ENCRIPTED -d ${YAML_PATH}/enc_${VALUES_YAML} |sed 's/_SOPS_ENCRIPTED//g' >  ${YAML_PATH}/${VALUES_YAML}"
+        sh "export GOOGLE_APPLICATION_CREDENTIALS='/tmp/jenkins.json'; sops --encrypted-regex _SOPS_ENCR[IY]PTED\$ -d ${YAML_PATH}/enc_${VALUES_YAML} |sed 's/_SOPS_ENCR[IY]PTED//g' >  ${YAML_PATH}/${VALUES_YAML}"
       }
     }
     // Use wait so helm waits the deploy to be applied in the cluster
