@@ -110,7 +110,13 @@ def deploy( Map config ){
       COMMON_ARGS = COMMON_ARGS.concat("--version ${config.chart_version} ")
     }
   }
-  sh "cd ${YAML_PATH}; helm init --client-only; if [ -f requirements.yaml ] ; then helm dep update; fi; cd -"
+  sh "cd ${YAML_PATH}; helm init --client-only"
+  if (config.helm_repos) {
+    for (repo in config.helm_repos) {
+      sh "helm repo add ${repo.key} ${repo.value}"
+    }
+  }
+  sh "if [ -f requirements.yaml ] ; then helm dep update; fi; cd -"
   sh "helm diff upgrade ${RELEASE_NAME} ${CHART} --allow-unreleased --namespace ${NAMESPACE} -f ${YAML_PATH}/${VALUES_YAML} ${COMMON_ARGS}"
   sh "helm upgrade ${RELEASE_NAME} ${CHART} --namespace ${NAMESPACE} -i -f ${YAML_PATH}/${VALUES_YAML} ${COMMON_ARGS} ${UPGRADE_ARGS}"
 }
